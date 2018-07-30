@@ -1,0 +1,3 @@
+/home/nick/Lab Project 2018/Beta PCL/build/CMakeFiles/rebuild_cache.dir
+/home/nick/Lab Project 2018/Beta PCL/build/CMakeFiles/edit_cache.dir
+/home/nick/Lab Project 2018/Beta PCL/build/CMakeFiles/cloud_viewer.dir

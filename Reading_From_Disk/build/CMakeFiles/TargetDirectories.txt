@@ -1,0 +1,3 @@
+/home/nick/Lab Project 2018/Reading_From_Disk/build/CMakeFiles/rebuild_cache.dir
+/home/nick/Lab Project 2018/Reading_From_Disk/build/CMakeFiles/edit_cache.dir
+/home/nick/Lab Project 2018/Reading_From_Disk/build/CMakeFiles/pcd_read.dir
