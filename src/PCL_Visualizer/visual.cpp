@@ -11,6 +11,7 @@
 #include <pcl/console/parse.h>
 
 #include <pcl/point_types.h>
+#include <pcl/common/transforms.h> // allows for transforms
 
 // The USAGE of the complier
 void printUsage (const char* progName)
@@ -33,7 +34,7 @@ boost::shared_ptr<pcl::visualization::PCLVisualizer> rgbVis (pcl::PointCloud<pcl
   viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "Point Cloud");
   //viewer->addCoordinateSystem (1.0); 
   viewer->initCameraParameters ();
-  viewer->spinOnce(100);       
+  //viewer->spinOnce(100);       
   return (viewer);
 }
 
@@ -63,7 +64,6 @@ int main (int argc, char** argv)
 // ------------------------------------------------------------------------------------------------------
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>); // create the PCL to read
     pcl::PointCloud<pcl::PointXYZRGB>& point_cloud = *point_cloud_ptr;
-    Eigen::Affine3f scene_sensor_pose (Eigen::Affine3f::Identity ());
     std::vector<int> pcd_filename_indices = pcl::console::parse_file_extension_argument (argc, argv, "pcd");
 
     if (!pcd_filename_indices.empty ()) // checks to make sure a .pcd has been specified
@@ -81,17 +81,25 @@ int main (int argc, char** argv)
             printUsage (argv[0]);
             return 0;
             }
-          //  
-            scene_sensor_pose = Eigen::Affine3f (Eigen::Translation3f (point_cloud.sensor_origin_[0],
-                                                             point_cloud.sensor_origin_[1],
-                                                             point_cloud.sensor_origin_[2])) *
-                                Eigen::Affine3f (point_cloud.sensor_orientation_);
+// Want to rotate the point cloud as it is upside down
+           
+            float angle = 3.14159;   // angle of rotation, radians = 180 degrees
+            // Using Eigen::Affine3f for 3D point cloud
+            Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+            transform.translation() << 0.0, 0.0, 0.0; // translate
+            transform.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitZ())); // rotation
+            //std::cout << transform.matrix() << std::endl; // display the rotation matrix
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ()); // doing the transformation
+            
+            // applying the transformation to the cloud
+            pcl::transformPointCloud (*point_cloud_ptr, *transformed_cloud, transform);
+
 
   // This displays the point cloud
           boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
               if (rgb)
               {
-                  viewer = rgbVis(point_cloud_ptr);
+                  viewer = rgbVis(transformed_cloud); // show the transformed point cloud
               } else {
                   EXIT_FAILURE;
               }
