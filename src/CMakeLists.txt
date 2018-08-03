@@ -10,5 +10,5 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable (sift-keypoint sift-keypoints.cpp)
-target_link_libraries (sift-keypoint ${PCL_LIBRARIES})
+add_executable (filter-cloud filter-cloud.cpp)
+target_link_libraries (filter-cloud ${PCL_LIBRARIES})
