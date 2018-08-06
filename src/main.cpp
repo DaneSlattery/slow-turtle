@@ -25,41 +25,10 @@ void filterPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointcloud_in, pcl:
 {
 	float mean = 50;
 	float stddev = 1;
-	
-	float startz = 0;
-	float endz = 1; //z
-	
-	float startx = -0.05;
-	float endx = 0.05; //x
-	
-	float starty = -1; 
-	float endy = 1; //y
-	
-	// z pass through filter
-	pcl::PassThrough<pcl::PointXYZRGB> passz;
-	passz.setInputCloud(pointcloud_in);
-	passz.setFilterFieldName("z");
-	passz.setFilterLimits(startz, endz);
-	passz.filter(*pointcloud_out);
-
-	// x pass through filter
-	pcl::PassThrough<pcl::PointXYZRGB> passx;
-	passx.setInputCloud(pointcloud_out);
-	passx.setFilterFieldName("x");
-	passx.setFilterLimits(startx, endx);
-	passx.filter(*pointcloud_out);
-
-	// y pass through filter
-	pcl::PassThrough<pcl::PointXYZRGB> passy;
-	passy.setInputCloud(pointcloud_out);
-	passy.setFilterFieldName("y");
-	passy.setFilterLimits(starty, endy);
-	passy.filter(*pointcloud_out);
-
 
 	// statistical filter the point cloud
 	pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
-	sor.setInputCloud (pointcloud_out);
+	sor.setInputCloud (pointcloud_in);
 	sor.setMeanK(mean);
 	sor.setStddevMulThresh(stddev);
 	sor.filter(*pointcloud_out);
