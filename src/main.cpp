@@ -14,25 +14,53 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/passthrough.h>
 
+#include <boost/make_shared.hpp> // allows for copying of pointers
 
-// The USAGE of the program
-void printUsage (const char* progName)
-{
-    	std::cout << "Usage: " << progName << "[options]\n" << "Options:\n" << "-h for help\n" << "[file_name.pcd]" << std::endl; 
-}
 
 void filterPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointcloud_in, pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointcloud_out)
 {
 	float mean = 50;
 	float stddev = 1;
+	
+	float startz = 0;
+	float endz = 1; //z
+	
+	float startx = -0.05;
+	float endx = 0.05; //x
+	
+	float starty = -1; 
+	float endy = 1; //y
+	
+	// z pass through filter
+	pcl::PassThrough<pcl::PointXYZRGB> passz;
+	passz.setInputCloud(pointcloud_in);
+	passz.setFilterFieldName("z");
+	passz.setFilterLimits(startz, endz);
+	passz.filter(*pointcloud_out);
+
+	// x pass through filter
+	pcl::PassThrough<pcl::PointXYZRGB> passx;
+	passx.setInputCloud(pointcloud_out);
+	passx.setFilterFieldName("x");
+	passx.setFilterLimits(startx, endx);
+	passx.filter(*pointcloud_out);
+
+	// y pass through filter
+	pcl::PassThrough<pcl::PointXYZRGB> passy;
+	passy.setInputCloud(pointcloud_out);
+	passy.setFilterFieldName("y");
+	passy.setFilterLimits(starty, endy);
+	passy.filter(*pointcloud_out);
+
 
 	// statistical filter the point cloud
 	pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
-	sor.setInputCloud (pointcloud_in);
+	sor.setInputCloud (pointcloud_out);
 	sor.setMeanK(mean);
 	sor.setStddevMulThresh(stddev);
 	sor.filter(*pointcloud_out);
 }
+
 
 int main (int argc, char** argv)
 { // START of MAIN
@@ -56,75 +84,82 @@ int main (int argc, char** argv)
 	}
 
 	// This is where we want to read in our own .pcd files to view on the viewer
-	// ------------------------------------------------------------------------------------------------------
-
-	//pcl::PointCloud<pcl::PointXYZRGB>& point_cloud = *point_cloud_ptr;
-	// std::vector<int> pcd_filename_indices = pcl::console::parse_file_extension_argument (argc, argv, "pcd"); // fetches files from args
-
-
-	//Creating the viewer
-	pcl::visualization::PCLVisualizer viewer("Point Cloud Visualizer");
-	//setting the background to black
-	viewer.setBackgroundColor (0, 0, 0); // set background to black
-
-	// if (!pcd_filename_indices.empty ()) // checks to make sure a .pcd has been specified
-	// {
-		// Need to call updatePointCloud() to change the point cloud each iteration
-		// Creating for loop to go through each .pcd in the file specified
-		pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB> ()); // create the PCL to read
-		pcl::PointCloud<pcl::PointXYZRGB>::Ptr filtered_point_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ()); // create the PCL to read
-		viewer.spinOnce();
+	// ------------------------------------------------------------------------------------------------------		
+		std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> data_s;
 		std::string infile;
+		
+		// Need to push back each .pcd file into the data_s vector
 		for(int i = 0; i < 24; i++)
 		{
 			infile = filedir;
 			infile = infile.append(std::to_string(i+1));
 			infile = infile.append(".pcd");
 
-			// Load the PCD files from disk
-			// if the file could not be opened then ...
-			std::cout << "On file: " << infile << std::endl;
-			if (pcl::io::loadPCDFile (infile, *point_cloud_ptr) < 0)  
+			std::cout << " Loading File: " << infile << std::endl;
+			pcl::PointCloud<pcl::PointXYZRGB>::Ptr data (new pcl::PointCloud<pcl::PointXYZRGB>);
+			if (pcl::io::loadPCDFile (infile, *data) < 0)  
 			{
 				std::cout << "Error loading point cloud " << infile << std::endl << std::endl;
 				return -1;
 			}
-			
-			filterPointCloud(point_cloud_ptr, filtered_point_cloud);
-			
-			pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(filtered_point_cloud); // define the RGB colours
-			// Want to rotate the point cloud as it is upside down
 
+			data_s.push_back(data); // pushing the .pcd data into the data_s vector
+
+		}
+
+		int v1, v2; // initializing the viewports
+	
+		if (data_s.empty())
+		{
+			PCL_ERROR ("The data_s vector is empty! \n") ;
+			return (-1);
+		}
+
+		pcl::visualization::PCLVisualizer *p;
+		p = new pcl::visualization::PCLVisualizer("Point Cloud Window");
+		p->createViewPort(0.0, 0, 0.5, 1.0, v1); // the sizes of each viewport
+		p->createViewPort(0.5, 0, 1.0, 1.0, v2);
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
+		//std::cout << data_s.size() << std::endl;
+		for(size_t i = 1; i < data_s.size(); i++)
+		{
+			source = data_s[i-1];
+			target = data_s[i];
+
+			p->removePointCloud ("_target");
+  			p->removePointCloud ("_source");
+			
+			pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> tgt_h (target);
+  			pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> src_h (source);
+			  
+			//Rotation Function ------------------------------------------------------------------------------------------------------------------------------------
 			float angle = 3.14159;   // angle of rotation, radians = 180 degrees
 			// Using Eigen::Affine3f for 3D point cloud
 			Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-			transform.translation() << 0.0, 0.0, 0.0; // translate
+			transform.translation() << 0.0, 0.0, 1.0; // translate with a zoom in Z-axis
 			// transform.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitZ())); // rotation
 			transform.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitX())); // x rotation
 			//std::cout << transform.matrix() << std::endl; // display the rotation matrix
-			pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ()); // doing the transformation
+			pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_source (new pcl::PointCloud<pcl::PointXYZRGB> ()); // doing the transformation
+		 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_target (new pcl::PointCloud<pcl::PointXYZRGB> ());
+			 // applying the transformation to the cloud
+			pcl::transformPointCloud (*source, *transformed_source, transform);
+			pcl::transformPointCloud (*target, *transformed_target, transform);
 
-			// applying the transformation to the cloud
-			pcl::transformPointCloud (*filtered_point_cloud, *transformed_cloud, transform);
+			p->addPointCloud (transformed_target, tgt_h, "_target", v1);
+  			p->addPointCloud (transformed_source, src_h, "_source", v2);  
 
-			if (i != 0)
-			{
-				viewer.removePointCloud("point_cloud"+(i-1));
-			}
-
-			viewer.addPointCloud(transformed_cloud,rgb,"point_cloud"+i);
-			viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "point_cloud"+i);
-
+			// Save the source cloud to the output directory 
 			std::string outfile = filedir;
 			outfile.append("output/");
-			outfile.append(std::to_string(i+1));
+			outfile.append(std::to_string(i));
 			outfile.append(".pcd");
-			std::cout << "trying Point cloud saved to: " << outfile << std::endl;
-
-			pcl::io::savePCDFileASCII(outfile, *transformed_cloud);
+			std::cout << "trying to save Point cloud to: " << outfile << std::endl;
+			pcl::io::savePCDFileASCII(outfile, *transformed_source);
 			std::cout << "Point cloud saved to: " << outfile << std::endl;
-			viewer.spin();
+
+ 			p->spin();
 		}
-	// }
+
 	return 0;
 } //END of MAIN
