@@ -117,11 +117,11 @@ int main (int argc, char** argv)
 
 		pcl::visualization::PCLVisualizer *p;
 		p = new pcl::visualization::PCLVisualizer("Point Cloud Window");
-		p->createViewPort(0.0, 0, 0.5, 1.0, v1); // the sizes of each viewport
-		p->createViewPort(0.5, 0, 1.0, 1.0, v2);
+	//	p->createViewPort(0.0, 0, 0.5, 1.0, v1); // the sizes of each viewport
+	//	p->createViewPort(0.5, 0, 1.0, 1.0, v2);
 		pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
 		//std::cout << data_s.size() << std::endl;
-		for(size_t i = 1; i < data_s.size(); i++)
+		for(size_t i = 1; i < data_s.size(); ++i)
 		{
 			source = data_s[i-1];
 			target = data_s[i];
@@ -131,23 +131,29 @@ int main (int argc, char** argv)
 			
 			pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> tgt_h (target);
   			pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> src_h (source);
-			  
+			
+			
+
+
 			//Rotation Function ------------------------------------------------------------------------------------------------------------------------------------
 			float angle = 3.14159;   // angle of rotation, radians = 180 degrees
 			// Using Eigen::Affine3f for 3D point cloud
 			Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+			Eigen::Affine3f shift_right = Eigen::Affine3f::Identity();
+			shift_right.translation() << 0.25, 0.0,1.0; // translate with zoom and shift
 			transform.translation() << 0.0, 0.0, 1.0; // translate with a zoom in Z-axis
-			// transform.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitZ())); // rotation
 			transform.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitX())); // x rotation
+			shift_right.rotate(Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitX())); // same rotation as before
 			//std::cout << transform.matrix() << std::endl; // display the rotation matrix
 			pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_source (new pcl::PointCloud<pcl::PointXYZRGB> ()); // doing the transformation
 		 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_target (new pcl::PointCloud<pcl::PointXYZRGB> ());
 			 // applying the transformation to the cloud
 			pcl::transformPointCloud (*source, *transformed_source, transform);
-			pcl::transformPointCloud (*target, *transformed_target, transform);
+			// Translation for second point cloud to keep in the same viewport, rather than two
+			pcl::transformPointCloud (*target, *transformed_target, shift_right);
 
-			p->addPointCloud (transformed_target, tgt_h, "_target", v1);
-  			p->addPointCloud (transformed_source, src_h, "_source", v2);  
+			p->addPointCloud (transformed_target, tgt_h, "_target");
+  			p->addPointCloud (transformed_source, src_h, "_source");  
 
 			// Save the source cloud to the output directory 
 			std::string outfile = filedir;
