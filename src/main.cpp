@@ -51,7 +51,7 @@ int main (int argc, char** argv)
 		sys_cmd.append(fileDir);
 		sys_cmd.append("output/");
 		system(sys_cmd.c_str());
-		cout << sys_cmd << endl;
+		cout << "Directory created at " << fileDir << "." << endl;
 	}
 	else
 	{
@@ -77,9 +77,9 @@ int main (int argc, char** argv)
 	loadPCDFile(inputFileName, *aPC);
 
 	// iputFileName.append(".pcd");
-	for (auto i = 2; i < 4; i++)
+	for (auto i = 2; i < 7; i++)
 	{
-		cout << i << endl;
+		cout << i-1 << " and " << i << "." << endl;
 		inputFileName = fileDir;
 		inputFileName.append(std::to_string(i));
 		inputFileName.append(".pcd");
@@ -101,7 +101,7 @@ int main (int argc, char** argv)
 		
 		// down sample...
 		pcl::VoxelGrid<PointT> vox;
-		vox.setLeafSize(0.002f, 0.002f, 0.002f);
+		vox.setLeafSize(0.0001f, 0.0001f, 0.0001f);
 		vox.setInputCloud(aPC);
 		vox.filter(*aPCSampled);
 		vox.setInputCloud(bPC);
@@ -114,22 +114,30 @@ int main (int argc, char** argv)
 		viewer.removePointCloud("pca");
     	viewer.removePointCloud("pcb");
 
+		// can probably afford to pre-rotate
 		// register, moving b to match a.
 		pcl::GeneralizedIterativeClosestPoint6D reg;
 		// we want to transform bPC to match aPC
 		reg.setInputSource(bPCSampled);
 		reg.setInputTarget(aPCSampled);
-		reg.setMaximumIterations(200);
-		reg.setTransformationEpsilon(1e-8);
-		reg.setMaxCorrespondenceDistance(0.1);
-		reg.setEuclideanFitnessEpsilon(0.0000001);
+		// reg.setMaximumIterations(200);
+		// reg.setTransformationEpsilon(1e-8);
+		reg.setMaxCorrespondenceDistance(0.05);
+		// reg.setEuclideanFitnessEpsilon(0.0000001);
 		// we never actually use outPC...?
 		reg.align(*outPC);
 
 		Eigen::Matrix4f FunMat = Eigen::Matrix4f::Identity();
 		FunMat = reg.getFinalTransformation();
-		std::cout << "has converged?: " << reg.hasConverged() << ". Score: " << reg.getFitnessScore() << std::endl;
-		std::cout << FunMat << std::endl;
+		std::cout << "Has converged?: " << reg.hasConverged() << ". Score: " << reg.getFitnessScore() << std::endl;
+
+		pcl::transformPointCloud(*bPCSampled, *bPCSampled, FunMat);
+		// visualization
+		viewer.addPointCloud(aPCSampled, "pca");
+		viewer.addPointCloud(bPCSampled, "pcb");
+		viewer.spin();
+		viewer.removePointCloud("pca");
+    	viewer.removePointCloud("pcb");
 
 		pcl::transformPointCloud(*bPC, *bPC, FunMat);
 
@@ -144,7 +152,6 @@ int main (int argc, char** argv)
 		outFileName.append("output/");
 		outFileName.append(std::to_string(i));
 		outFileName.append(".pcd");
-		cout << "trying to save Point cloud to: " << outFileName << endl;
 		pcl::io::savePCDFileASCII(outFileName, *aPC);
 		cout << "Point cloud saved to: " << outFileName << endl;
 
