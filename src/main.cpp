@@ -14,8 +14,11 @@
 #include <pcl/point_cloud.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/passthrough.h>
-
+#include <pcl/registration/icp.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/bilateral.h>
+#include <pcl/filters/fast_bilateral.h>
+#include <pcl/filters/median_filter.h>
 
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
@@ -61,6 +64,7 @@ int main (int argc, char** argv)
 	}
 
 	pcl::visualization::PCLVisualizer viewer("PCView");
+	viewer.addCoordinateSystem(0.1f);
     viewer.setBackgroundColor(0,0,0);
     viewer.spinOnce();
 	
@@ -76,8 +80,11 @@ int main (int argc, char** argv)
 	inputFileName.append("1.pcd");
 	loadPCDFile(inputFileName, *aPC);
 
-	// iputFileName.append(".pcd");
-	for (auto i = 2; i < 7; i++)
+	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+	transform.translation() << 0.0, 0.2, -0.13; 
+	pcl::transformPointCloud (*aPC, *aPC, transform);
+
+	for (auto i = 2; i < 25; i++)
 	{
 		cout << i-1 << " and " << i << "." << endl;
 		inputFileName = fileDir;
@@ -85,44 +92,87 @@ int main (int argc, char** argv)
 		inputFileName.append(".pcd");
 		// load next file into b
 		loadPCDFile(inputFileName, *bPC);
-		
+		// move cloud forward and up
+		Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+		transform.translation() << 0.0, 0.2, -0.13; 
+		pcl::transformPointCloud (*bPC, *bPC, transform);		
+		// rotate by 15degrees
+		transform = Eigen::Affine3f::Identity();
+		float angle = M_PI/12*(i-1);
+		cout << "Angle: " << angle << endl;
+		transform.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitZ())); // z rotation
+		pcl::transformPointCloud (*bPC, *bPC, transform);
+
+		//viewer.addPointCloud(aPC, "pca");
+		//viewer.addPointCloud(bPC, "pcb");
+		//viewer.spin();
+		//viewer.removePointCloud("pca");
+		//viewer.removePointCloud("pcb");
+
 		// we have a and b, now filter
-		filterPointCloud(aPC, aPC);
-		filterPointCloud(bPC, bPC);
+		// filterPointCloud(aPC, aPC);
+		// filterPointCloud(bPC, bPC);
 
 		// visualization
-		viewer.addPointCloud(aPC, "pca");
-		viewer.addPointCloud(bPC, "pcb");
-		viewer.spin();
-		viewer.removePointCloud("pca");
-    	viewer.removePointCloud("pcb");
+		// viewer.addPointCloud(aPC, "pca");
+		// viewer.addPointCloud(bPC, "pcb");
+		// viewer.spin();
+		// viewer.removePointCloud("pca");
+    	// viewer.removePointCloud("pcb");
 
 		// detect features 
 		
 		// down sample...
+
+		// pcl::MedianFilter<pcl::PointXYZRGBA> med;
+		// med.setInputCloud(aPC);
+		// med.setWindowSize(7);
+		// med.setMaxAllowedMovement(0.02f);
+		// med.filter(*aPCSampled);
+		// med.setInputCloud(bPC);
+		// med.filter(*bPCSampled);
+
+
+		// pcl::PointCloud<pcl::PointXYZI>::Ptr aPC_XYZ (new pcl::PointCloud<pcl::PointXYZI>);		
+		// pcl::PointCloud<pcl::PointXYZI>::Ptr bPC_XYZ (new pcl::PointCloud<pcl::PointXYZI>);
+		// pcl::PointCloud<pcl::PointXYZI>::Ptr aPC_XYZSampled (new pcl::PointCloud<pcl::PointXYZI>);		
+		// pcl::PointCloud<pcl::PointXYZI>::Ptr bPC_XYZSampled (new pcl::PointCloud<pcl::PointXYZI>);
+
+		// pcl::copyPointCloud(*aPC, *aPC_XYZ);		
+		// pcl::copyPointCloud(*bPC, *bPC_XYZ);
+
+		// pcl::BilateralFilter<pcl::PointXYZI> bi_filter;
+		// bi_filter.setInputCloud(aPC_XYZ);
+		// bi_filter.setHalfSize(5);
+		// bi_filter.setStdDev(0.005f);
+		// bi_filter.filter(*aPC_XYZSampled);
+		// bi_filter.setInputCloud(bPC_XYZ);
+		// bi_filter.filter(*bPC_XYZSampled);
 		pcl::VoxelGrid<PointT> vox;
-		vox.setLeafSize(0.0001f, 0.0001f, 0.0001f);
+		vox.setLeafSize(0.0008f, 0.0008f, 0.0008f);
 		vox.setInputCloud(aPC);
 		vox.filter(*aPCSampled);
 		vox.setInputCloud(bPC);
 		vox.filter(*bPCSampled);
 
+
 		// visualization
-		viewer.addPointCloud(aPCSampled, "pca");
-		viewer.addPointCloud(bPCSampled, "pcb");
-		viewer.spin();
-		viewer.removePointCloud("pca");
-    	viewer.removePointCloud("pcb");
+		// viewer.addPointCloud(aPCSampled, "pca");
+		// viewer.addPointCloud(bPCSampled, "pcb");
+		// viewer.spin();
+		// viewer.removePointCloud("pca");
+    	// viewer.removePointCloud("pcb");
 
 		// can probably afford to pre-rotate
 		// register, moving b to match a.
 		pcl::GeneralizedIterativeClosestPoint6D reg;
+		// pcl::IterativeClosestPoint<pcl::PointXYZRGBA, pcl::PointXYZRGBA> reg;
 		// we want to transform bPC to match aPC
 		reg.setInputSource(bPCSampled);
 		reg.setInputTarget(aPCSampled);
 		// reg.setMaximumIterations(200);
 		// reg.setTransformationEpsilon(1e-8);
-		reg.setMaxCorrespondenceDistance(0.05);
+		// reg.setMaxCorrespondenceDistance(0.05);
 		// reg.setEuclideanFitnessEpsilon(0.0000001);
 		// we never actually use outPC...?
 		reg.align(*outPC);
@@ -131,21 +181,21 @@ int main (int argc, char** argv)
 		FunMat = reg.getFinalTransformation();
 		std::cout << "Has converged?: " << reg.hasConverged() << ". Score: " << reg.getFitnessScore() << std::endl;
 
-		pcl::transformPointCloud(*bPCSampled, *bPCSampled, FunMat);
-		// visualization
-		viewer.addPointCloud(aPCSampled, "pca");
-		viewer.addPointCloud(bPCSampled, "pcb");
-		viewer.spin();
-		viewer.removePointCloud("pca");
-    	viewer.removePointCloud("pcb");
+		// pcl::transformPointCloud(*bPCSampled, *bPCSampled, FunMat);
+		// // visualization
+		// viewer.addPointCloud(aPCSampled, "pca");
+		// viewer.addPointCloud(bPCSampled, "pcb");
+		// viewer.spin();
+		// viewer.removePointCloud("pca");
+    	// viewer.removePointCloud("pcb");
 
 		pcl::transformPointCloud(*bPC, *bPC, FunMat);
 
-		viewer.addPointCloud(aPC, "pca");
-		viewer.addPointCloud(bPC, "pcb");
-		viewer.spin();
-		viewer.removePointCloud("pca");
-    	viewer.removePointCloud("pcb");
+		// viewer.addPointCloud(aPC, "pca");
+		// viewer.addPointCloud(bPC, "pcb");
+		// viewer.spin();
+		// viewer.removePointCloud("pca");
+    	// viewer.removePointCloud("pcb");
 
 		// save the point clouds to the output
 		std::string outFileName = fileDir;
